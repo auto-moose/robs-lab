@@ -16,6 +16,9 @@ let list: number[] = []
 // 
 // 4 - End Screen
 function setupLevel () {
+    music.stopAllSounds()
+    music.setVolume(15)
+    music.play(music.createSong(assets.song`Music`), music.PlaybackMode.LoopingInBackground)
     selectedBlock = 0
     blockListX = []
     blockListY = []
@@ -33,19 +36,35 @@ function setupLevel () {
         itemsUnlocked = 1
     }
 }
+function mainMenu () {
+    titleText.setText("")
+    music.stopAllSounds()
+    music.setVolume(100)
+    music.play(music.melodyPlayable(music.powerUp), music.PlaybackMode.InBackground)
+    scene.setBackgroundImage(assets.image`transition`)
+    transitionText.setPosition(114, 60)
+    transitionText.setText("Level 1 Start!")
+    pause(2000)
+    transitionText.setText("")
+    scene.setBackgroundImage(assets.image`bg`)
+    level = 1
+    setupLevel()
+    loadLevel()
+}
 controller.up.onEvent(ControllerButtonEvent.Pressed, function () {
-    if (state == 1) {
+    if (state == 0) {
+        mainMenu()
+    } else if (state == 1) {
         if (blockY > minBlockY) {
             blockY += -1
         }
         grid.place(blockSelect, tiles.getTileLocation(blockX, blockY))
         updateBlockSelect()
-    } else if (state == 2) {
-    	
     }
 })
 function placeBlock () {
-    music.play(music.melodyPlayable(music.thump), music.PlaybackMode.InBackground)
+    music.setVolume(100)
+    music.play(music.melodyPlayable(music.knock), music.PlaybackMode.InBackground)
     scene.cameraShake(4, 200)
     if (selectedBlock == 1) {
         tiles.setTileAt(tiles.getTileLocation(blockX, blockY), assets.tile`stone`)
@@ -60,14 +79,17 @@ function placeBlock () {
     updateBlockSelect()
 }
 controller.B.onEvent(ControllerButtonEvent.Pressed, function () {
-    if (state == 1) {
+    if (state == 0) {
+        mainMenu()
+    } else if (state == 1) {
         blockSelectMenu()
     } else if (state == 2) {
         loadLevel()
     }
 })
 function breakBlock () {
-    music.play(music.melodyPlayable(music.thump), music.PlaybackMode.InBackground)
+    music.setVolume(100)
+    music.play(music.melodyPlayable(music.bigCrash), music.PlaybackMode.InBackground)
     scene.cameraShake(4, 200)
     for (let index = 0; index <= blockListX.length; index++) {
         if (blockListX[index] == blockX && blockListY[index] == blockY) {
@@ -84,7 +106,9 @@ function breakBlock () {
     updateBlockSelect()
 }
 controller.A.onEvent(ControllerButtonEvent.Pressed, function () {
-    if (state == 1) {
+    if (state == 0) {
+        mainMenu()
+    } else if (state == 1) {
         if (blockX == playerGridX && blockY == playerGridY) {
             start()
         } else if (selectedBlock == 0) {
@@ -95,19 +119,22 @@ controller.A.onEvent(ControllerButtonEvent.Pressed, function () {
             if (blockAvailable == 1) {
                 placeBlock()
             } else {
+                music.setVolume(75)
                 music.play(music.melodyPlayable(music.buzzer), music.PlaybackMode.InBackground)
             }
         }
     } else if (state == 2) {
         // Buy stone block
-        // 
+        // dx 
         if (shopMenuSelect == 0) {
             if (coins >= 1) {
-                music.play(music.melodyPlayable(music.powerUp), music.PlaybackMode.InBackground)
+                music.setVolume(51)
+                music.play(music.melodyPlayable(music.baDing), music.PlaybackMode.InBackground)
                 coins += -1
                 selectedBlock = 1
                 loadLevel()
             } else {
+                music.setVolume(75)
                 music.play(music.melodyPlayable(music.buzzer), music.PlaybackMode.InBackground)
                 rob.sayText("Too expensive!", 1000, false)
             }
@@ -117,14 +144,14 @@ controller.A.onEvent(ControllerButtonEvent.Pressed, function () {
     }
 })
 controller.left.onEvent(ControllerButtonEvent.Pressed, function () {
-    if (state == 1) {
+    if (state == 0) {
+        mainMenu()
+    } else if (state == 1) {
         if (blockX > minBlockX) {
             blockX += -1
         }
         grid.place(blockSelect, tiles.getTileLocation(blockX, blockY))
         updateBlockSelect()
-    } else if (state == 2) {
-    	
     }
 })
 function loadLevel () {
@@ -199,27 +226,61 @@ function updateBlockSelect () {
     }
 }
 controller.right.onEvent(ControllerButtonEvent.Pressed, function () {
-    if (state == 1) {
+    if (state == 0) {
+        mainMenu()
+    } else if (state == 1) {
         if (blockX < maxBlockX) {
             blockX += 1
         }
         grid.place(blockSelect, tiles.getTileLocation(blockX, blockY))
         updateBlockSelect()
-    } else if (state == 2) {
-    	
     }
 })
 controller.down.onEvent(ControllerButtonEvent.Pressed, function () {
-    if (state == 1) {
+    if (state == 0) {
+        mainMenu()
+    } else if (state == 1) {
         if (blockY < maxBlockY) {
             blockY += 1
         }
         grid.place(blockSelect, tiles.getTileLocation(blockX, blockY))
         updateBlockSelect()
-    } else if (state == 2) {
-    	
     }
 })
+function cutscene () {
+    music.stopAllSounds()
+    scene.cameraFollowSprite(null)
+    tiles.setCurrentTilemap(tilemap`empty`)
+    scene.setBackgroundImage(assets.image`transition`)
+    transitionText = textsprite.create("Level " + level + " complete!")
+    rob.setPosition(500, 500)
+    transitionText.setPosition(150, 190)
+    scene.centerCameraAt(150, 200)
+    pause(2000)
+    transitionText.setText("")
+    scene.setBackgroundImage(assets.image`bg`)
+    if (level == 1) {
+        tiles.setCurrentTilemap(tilemap`Cutscene1`)
+        grid.place(rob, tiles.getTileLocation(0, 13))
+        scene.centerCameraAt(150, 200)
+    }
+    rob.ay = 500
+    rob.vx = 30
+    music.setVolume(100)
+    music.play(music.createSong(assets.song`cutsceneSong`), music.PlaybackMode.InBackground)
+    timer.after(13000, function () {
+        sprites.destroy(rob)
+        level += 1
+        transitionText.setText("Level " + level + " start!")
+        scene.centerCameraAt(142, 200)
+        tiles.setCurrentTilemap(tilemap`empty`)
+        scene.setBackgroundImage(assets.image`transition`)
+        pause(2000)
+        transitionText.setText("")
+        setupLevel()
+        loadLevel()
+    })
+}
 function refreshShop () {
     if (itemsUnlocked == 1) {
         if (shopMenuSelect == 0) {
@@ -232,6 +293,7 @@ function refreshShop () {
 }
 function start () {
     music.stopAllSounds()
+    music.setVolume(15)
     music.play(music.createSong(assets.song`startMusic`), music.PlaybackMode.LoopingInBackground)
     state = 3
     sprites.destroy(blockSelect)
@@ -245,7 +307,6 @@ let rob: Sprite = null
 let shopMenuSelect = 0
 let blockAvailable = 0
 let blockSelect: Sprite = null
-let state = 0
 let itemsUnlocked = 0
 let coins = 0
 let maxBlockX = 0
@@ -256,14 +317,67 @@ let blockY = 0
 let blockX = 0
 let playerGridY = 0
 let playerGridX = 0
+let level = 0
 let blockListType: number[] = []
 let blockListY: number[] = []
 let blockListX: number[] = []
 let selectedBlock = 0
-let level = 0
-scene.setBackgroundImage(assets.image`bg`)
-level = 1
-setupLevel()
-loadLevel()
-music.setVolume(12)
-music.play(music.createSong(assets.song`Music`), music.PlaybackMode.LoopingInBackground)
+let transitionText: TextSprite = null
+let titleText: TextSprite = null
+let state = 0
+state = 0
+let textSprite = 0
+scene.setBackgroundImage(assets.image`mainMenuScreen`)
+music.play(music.createSong(assets.song`menuSong`), music.PlaybackMode.LoopingInBackground)
+titleText = textsprite.create("Rob's Lab")
+scaling.scaleToPercent(titleText, 200, ScaleDirection.Uniformly, ScaleAnchor.Middle)
+titleText.setPosition(81, 16)
+transitionText = textsprite.create("Press any button to start")
+transitionText.setPosition(81, 111)
+game.onUpdate(function () {
+    if (state == 3) {
+        if (rob.isHittingTile(CollisionDirection.Right)) {
+            rob.vx = -50
+            rob.setImage(assets.image`robLeft`)
+        }
+        if (rob.isHittingTile(CollisionDirection.Left)) {
+            rob.vx = 50
+            rob.setImage(assets.image`rob`)
+        }
+        if (tiles.tileAtLocationEquals(rob.tilemapLocation(), assets.tile`lava`)) {
+            scene.cameraShake(4, 200)
+            rob.setVelocity(0, 10)
+            rob.ay = 20
+            sprites.destroy(rob, effects.fire, 500)
+            music.stopAllSounds()
+            music.setVolume(255)
+            music.play(music.melodyPlayable(music.smallCrash), music.PlaybackMode.InBackground)
+            music.setVolume(12)
+            blockX += -1
+            music.play(music.createSong(assets.song`Music`), music.PlaybackMode.LoopingInBackground)
+            loadLevel()
+        }
+        if (tiles.tileAtLocationEquals(rob.tilemapLocation(), assets.tile`flag`)) {
+            rob.setVelocity(rob.vx / 20, 0)
+            state = 4
+            effects.confetti.startScreenEffect(1000)
+            music.stopAllSounds()
+            music.setVolume(60)
+            music.play(music.melodyPlayable(music.magicWand), music.PlaybackMode.UntilDone)
+            music.setVolume(15)
+            music.play(music.createSong(assets.song`endMusic`), music.PlaybackMode.InBackground)
+            timer.after(4700, function () {
+                cutscene()
+            })
+        }
+    } else if (state == 4) {
+        if (rob.isHittingTile(CollisionDirection.Right)) {
+            rob.vx = -30
+            rob.setImage(assets.image`robLeft`)
+        }
+        if (rob.isHittingTile(CollisionDirection.Left)) {
+            rob.vx = 30
+            rob.setImage(assets.image`rob`)
+        }
+    }
+})

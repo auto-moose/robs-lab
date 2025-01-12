@@ -3,6 +3,7 @@ class SpriteKind:
     camera = SpriteKind.create()
     Block = SpriteKind.create()
     image = SpriteKind.create()
+list2: List[number] = []
 # States
 # 
 # 0 - Main Menu
@@ -15,8 +16,17 @@ class SpriteKind:
 # 
 # 4 - End Screen
 def setupLevel():
-    global selectedBlock, playerGridX, playerGridY, blockX, blockY, minBlockY, maxBlockY, minBlockX, maxBlockX, coins
+    global selectedBlock, blockListX, blockListY, blockListType, playerGridX, playerGridY, blockX, blockY, minBlockY, maxBlockY, minBlockX, maxBlockX, coins, itemsUnlocked
+    music.stop_all_sounds()
+    music.set_volume(12)
+    music.play(music.create_song(assets.song("""
+            Music
+        """)),
+        music.PlaybackMode.LOOPING_IN_BACKGROUND)
     selectedBlock = 0
+    blockListX = []
+    blockListY = []
+    blockListType = []
     if level == 1:
         playerGridX = 1
         playerGridY = 13
@@ -27,6 +37,7 @@ def setupLevel():
         minBlockX = 0
         maxBlockX = 7
         coins = 1
+        itemsUnlocked = 1
 
 def on_up_pressed():
     global blockY
@@ -39,6 +50,25 @@ def on_up_pressed():
         pass
 controller.up.on_event(ControllerButtonEvent.PRESSED, on_up_pressed)
 
+def placeBlock():
+    global selectedBlock
+    music.play(music.melody_playable(music.thump),
+        music.PlaybackMode.IN_BACKGROUND)
+    scene.camera_shake(4, 200)
+    if selectedBlock == 1:
+        tiles.set_tile_at(tiles.get_tile_location(blockX, blockY),
+            assets.tile("""
+                stone
+            """))
+        tiles.set_wall_at(tiles.get_tile_location(blockX, blockY), True)
+        blockListType.append(1)
+        blockListX.append(blockX)
+        blockListY.append(blockY)
+    else:
+        pass
+    selectedBlock = 0
+    updateBlockSelect()
+
 def on_b_pressed():
     if state == 1:
         blockSelectMenu()
@@ -46,11 +76,60 @@ def on_b_pressed():
         loadLevel()
 controller.B.on_event(ControllerButtonEvent.PRESSED, on_b_pressed)
 
+def breakBlock():
+    global coins
+    music.play(music.melody_playable(music.thump),
+        music.PlaybackMode.IN_BACKGROUND)
+    scene.camera_shake(4, 200)
+    index = 0
+    while index <= len(blockListX):
+        if blockListX[index] == blockX and blockListY[index] == blockY:
+            if blockListType[index] == 1:
+                coins += 1
+            blockListX.remove_at(index)
+            blockListY.remove_at(index)
+            blockListType.remove_at(index)
+            break
+        index += 1
+    tiles.set_tile_at(tiles.get_tile_location(blockX, blockY),
+        assets.tile("""
+            transparency16
+        """))
+    updateBlockSelect()
+
 def on_a_pressed():
-    if state == 1 and (blockX == playerGridX and blockY == playerGridY):
-        start()
+    global coins, selectedBlock
+    if state == 1:
+        if blockX == playerGridX and blockY == playerGridY:
+            start()
+        elif selectedBlock == 0:
+            if tiles.tile_at_location_equals(tiles.get_tile_location(blockX, blockY),
+                assets.tile("""
+                    stone
+                """)):
+                breakBlock()
+        else:
+            if blockAvailable == 1:
+                placeBlock()
+            else:
+                music.play(music.melody_playable(music.buzzer),
+                    music.PlaybackMode.IN_BACKGROUND)
     elif state == 2:
-        loadLevel()
+        # Buy stone block
+        # d
+        if shopMenuSelect == 0:
+            if coins >= 1:
+                music.play(music.melody_playable(music.power_up),
+                    music.PlaybackMode.IN_BACKGROUND)
+                coins += -1
+                selectedBlock = 1
+                loadLevel()
+            else:
+                music.play(music.melody_playable(music.buzzer),
+                    music.PlaybackMode.IN_BACKGROUND)
+                rob.say_text("Too expensive!", 1000, False)
+        else:
+            pass
 controller.A.on_event(ControllerButtonEvent.PRESSED, on_a_pressed)
 
 def on_left_pressed():
@@ -78,6 +157,18 @@ def loadLevel():
     tiles.set_current_tilemap(tilemap("""
         level1
     """))
+    index2 = 0
+    while index2 <= len(list2):
+        if blockListType[index2] == 1:
+            tiles.set_tile_at(tiles.get_tile_location(blockListX[index2], blockListY[index2]),
+                assets.tile("""
+                    stone
+                """))
+            tiles.set_wall_at(tiles.get_tile_location(blockListX[index2], blockListY[index2]),
+                True)
+        else:
+            pass
+        index2 += 1
     scene.set_background_image(assets.image("""
         bg
     """))
@@ -86,21 +177,31 @@ def loadLevel():
     grid.place(blockSelect, tiles.get_tile_location(blockX, blockY))
     scene.camera_follow_sprite(blockSelect)
 def blockSelectMenu():
-    global state, aButton
+    global state, aButton, number
     state = 2
-    sprites.destroy(rob)
+    rob.set_position(96, 22)
     sprites.destroy(blockSelect)
     tiles.set_current_tilemap(tilemap("""
         empty
-    """))
-    scene.set_background_image(assets.image("""
-        blockSelectScreen1a
     """))
     scene.center_camera_at(0, 0)
     aButton = sprites.create(assets.image("""
         aButton
     """), SpriteKind.image)
-    aButton.set_position(67, 18)
+    refreshShop()
+    if coins == 0:
+        number = sprites.create(assets.image("""
+            0
+        """), SpriteKind.image)
+    elif coins == 1:
+        number = sprites.create(assets.image("""
+            1
+        """), SpriteKind.image)
+    elif coins == 2:
+        number = sprites.create(assets.image("""
+            2
+        """), SpriteKind.image)
+    number.set_position(123, 17)
     scaling.scale_to_percent(aButton, 70, ScaleDirection.UNIFORMLY, ScaleAnchor.MIDDLE)
     animation.run_image_animation(aButton, assets.animation("""
         buttonAnim
@@ -120,14 +221,22 @@ def updateBlockSelect():
         blockAvailable = 1
     if blockX == playerGridX and blockY == playerGridY:
         blockSelect.set_image(assets.image("""
-            blockSelect0X
+            empty
         """))
         blockSelect.say_text("Go!")
     else:
         if selectedBlock == 0:
-            blockSelect.set_image(assets.image("""
-                blockSelect0
-            """))
+            if tiles.tile_at_location_equals(tiles.get_tile_location(blockX, blockY),
+                assets.tile("""
+                    stone
+                """)):
+                blockSelect.set_image(assets.image("""
+                    blockSelect0X
+                """))
+            else:
+                blockSelect.set_image(assets.image("""
+                    blockSelect0
+                """))
         elif selectedBlock == 1:
             if blockAvailable == 1:
                 blockSelect.set_image(assets.image("""
@@ -160,6 +269,15 @@ def on_down_pressed():
         pass
 controller.down.on_event(ControllerButtonEvent.PRESSED, on_down_pressed)
 
+def refreshShop():
+    if itemsUnlocked == 1:
+        if shopMenuSelect == 0:
+            scene.set_background_image(assets.image("""
+                blockSelectScreen1a
+            """))
+            aButton.set_position(67, 18)
+        else:
+            pass
 def start():
     global state
     music.stop_all_sounds()
@@ -172,11 +290,14 @@ def start():
     scene.camera_follow_sprite(rob)
     rob.ay = 500
     rob.vx = 50
-blockAvailable = 0
+number: Sprite = None
 aButton: Sprite = None
 rob: Sprite = None
+shopMenuSelect = 0
+blockAvailable = 0
 blockSelect: Sprite = None
 state = 0
+itemsUnlocked = 0
 coins = 0
 maxBlockX = 0
 minBlockX = 0
@@ -186,6 +307,9 @@ blockY = 0
 blockX = 0
 playerGridY = 0
 playerGridX = 0
+blockListType: List[number] = []
+blockListY: List[number] = []
+blockListX: List[number] = []
 selectedBlock = 0
 level = 0
 scene.set_background_image(assets.image("""
@@ -194,8 +318,47 @@ scene.set_background_image(assets.image("""
 level = 1
 setupLevel()
 loadLevel()
-music.set_volume(12)
-music.play(music.create_song(assets.song("""
-        Music
-    """)),
-    music.PlaybackMode.LOOPING_IN_BACKGROUND)
+
+def on_on_update():
+    global blockX, state
+    if state == 3:
+        if rob.is_hitting_tile(CollisionDirection.RIGHT):
+            rob.vx = -50
+            rob.set_image(assets.image("""
+                robLeft
+            """))
+        if rob.is_hitting_tile(CollisionDirection.LEFT):
+            rob.vx = 50
+            rob.set_image(assets.image("""
+                rob
+            """))
+        if tiles.tile_at_location_equals(rob.tilemap_location(), assets.tile("""
+            lava
+        """)):
+            scene.camera_shake(4, 200)
+            rob.set_velocity(0, 10)
+            rob.ay = 20
+            sprites.destroy(rob, effects.fire, 500)
+            music.stop_all_sounds()
+            music.play(music.melody_playable(music.big_crash),
+                music.PlaybackMode.IN_BACKGROUND)
+            music.set_volume(12)
+            blockX += -1
+            music.play(music.create_song(assets.song("""
+                    Music
+                """)),
+                music.PlaybackMode.LOOPING_IN_BACKGROUND)
+            loadLevel()
+        if tiles.tile_at_location_equals(rob.tilemap_location(), assets.tile("""
+            flag
+        """)):
+            rob.set_velocity(rob.vx / 20, 0)
+            effects.confetti.start_screen_effect(1000)
+            music.stop_all_sounds()
+            music.set_volume(60)
+            music.play(music.melody_playable(music.magic_wand),
+                music.PlaybackMode.IN_BACKGROUND)
+            state = 4
+    else:
+        pass
+game.on_update(on_on_update)
